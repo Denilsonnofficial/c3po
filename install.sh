@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# Instalador de uma linha do C3PO (repositório privado: precisa de um token do GitHub com leitura).
-#   read -rsp "Token do GitHub: " T; echo          (primeiro este, sozinho)
-#   curl -fsSL -H "Authorization: Bearer $T" -H "Accept: application/vnd.github.raw" \
-#     https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh | C3PO_TOKEN_GITHUB="$T" bash
+# Instalador de uma linha do C3PO:
+#   curl -fsSL https://raw.githubusercontent.com/Denilsonnofficial/c3po/main/install.sh | bash
+# (se o repositório voltar a ser privado: C3PO_TOKEN_GITHUB=<token> para baixar)
 # Baixa o projeto e roda o instalador; a configuração (nome, voz, personalidade) usa o terminal.
 set -euo pipefail
 REPO="${C3PO_REPO:-Denilsonnofficial/c3po}"
@@ -14,11 +13,16 @@ if [ -n "${C3PO_FONTE:-}" ]; then                 # teste: instala de uma pasta 
   cp -r "$C3PO_FONTE"/. "$tmp/c3po"
 else
   printf '\033[38;5;214m==>\033[0m Baixando o C3PO (%s)\n' "$REPO"
-  auth=()
-  [ -n "$TOKEN" ] && auth=(-H "Authorization: Bearer $TOKEN")
-  if ! curl -fsSL "${auth[@]}" "https://api.github.com/repos/$REPO/tarball/$RAMO" -o "$tmp/c3po.tar.gz"; then
-    printf '\033[38;5;203mErro:\033[0m não consegui baixar %s. O repositório é privado: confira o token\n' "$REPO" >&2
-    printf '      (precisa de acesso de leitura a "Contents" desse repositório).\n' >&2
+  if [ -n "$TOKEN" ]; then
+    url="https://api.github.com/repos/$REPO/tarball/$RAMO"
+    ok=$(curl -fsSL -H "Authorization: Bearer $TOKEN" "$url" -o "$tmp/c3po.tar.gz" && echo s || echo n)
+  else
+    url="https://codeload.github.com/$REPO/tar.gz/refs/heads/$RAMO"
+    ok=$(curl -fsSL "$url" -o "$tmp/c3po.tar.gz" && echo s || echo n)
+  fi
+  if [ "$ok" != s ]; then
+    printf '\033[38;5;203mErro:\033[0m não consegui baixar %s (sem internet, ou o repositório ficou privado:\n' "$REPO" >&2
+    printf '      nesse caso rode com C3PO_TOKEN_GITHUB=<token>).\n' >&2
     exit 1
   fi
   mkdir -p "$tmp/x" && tar -xzf "$tmp/c3po.tar.gz" -C "$tmp/x"

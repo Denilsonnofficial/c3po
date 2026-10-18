@@ -11,21 +11,11 @@ respondida); gadget e temas testados no Arch/GNOME.
 
 ## Instalar
 
-O repositório é **privado**: a instalação usa um token do GitHub só de leitura (veja abaixo como
-criar). O comando pede o token sem mostrar na tela, então ele não fica no histórico:
-
-Em dois comandos (colar tudo de uma vez quebra: o `read` engole o resto do texto colado):
-
 ```
-read -rsp "Token do GitHub: " T; echo
-```
-```
-curl -fsSL -H "Authorization: Bearer $T" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh | C3PO_TOKEN_GITHUB="$T" bash
+curl -fsSL https://raw.githubusercontent.com/Denilsonnofficial/c3po/main/install.sh | bash
 ```
 
-Token: https://github.com/settings/personal-access-tokens/new → *Repository access: Only select
-repositories* → `c3po` → *Permissions → Contents: Read-only*. O token só é usado para baixar; não
-fica gravado na máquina. Outras formas: `git clone` + `./instalar.sh`, ou o instalador offline `run/c3po-<versão>.run`
+Outras formas: `git clone` + `./instalar.sh`, ou o instalador offline `run/c3po-<versão>.run`
 (`sh c3po-1.0.0.run`). Para remover: `./instalar.sh --remover` (a memória fica, se você quiser
 voltar).
 
