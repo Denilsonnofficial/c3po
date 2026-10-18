@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="ouro" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#5c3e0e"/><stop offset="0.28" stop-color="#c4922e"/>
+      <stop offset="0.46" stop-color="#ffe28c"/><stop offset="0.64" stop-color="#c4922e"/><stop offset="1" stop-color="#5c3e0e"/>
+    </linearGradient>
+    <radialGradient id="olho" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fffbe0"/><stop offset="0.4" stop-color="#ffd25a"/><stop offset="1" stop-color="#b86a10"/>
+    </radialGradient>
+    <radialGradient id="aura" cx="50%" cy="50%" r="50%">
+      <stop offset="0.55" stop-color="#ffb43c" stop-opacity="0.35"/><stop offset="1" stop-color="#ffb43c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="reflexo" cx="35%" cy="25%" r="40%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="128" cy="128" r="124" fill="url(#aura)"/>
+  <g stroke="#3c2808" stroke-width="3">
+    <circle cx="44" cy="136" r="20" fill="url(#ouro)"/><circle cx="44" cy="136" r="9" fill="none"/>
+    <circle cx="212" cy="136" r="20" fill="url(#ouro)"/><circle cx="212" cy="136" r="9" fill="none"/>
+    <rect x="58" y="30" width="140" height="196" rx="66" ry="78" fill="url(#ouro)"/>
+  </g>
+  <g fill="none" stroke="#6e4a10" stroke-width="3" stroke-linecap="round" opacity="0.8">
+    <path d="M78 104 Q128 70 178 104"/>
+    <path d="M128 134 V162"/><path d="M84 168 L108 196"/><path d="M172 168 L148 196"/>
+  </g>
+  <g>
+    <circle cx="96" cy="126" r="22" fill="#2e1e04"/><circle cx="160" cy="126" r="22" fill="#2e1e04"/>
+    <circle cx="96" cy="126" r="15" fill="url(#olho)"/><circle cx="160" cy="126" r="15" fill="url(#olho)"/>
+  </g>
+  <rect x="106" y="176" width="44" height="13" rx="4" fill="#2e1e04" stroke="#3c2808" stroke-width="2"/>
+  <g stroke="#ffcf5c" stroke-width="2" opacity="0.8">
+    <path d="M114 178 V187"/><path d="M121 178 V187"/><path d="M128 178 V187"/><path d="M135 178 V187"/><path d="M142 178 V187"/>
+  </g>
+  <rect x="58" y="30" width="140" height="196" rx="66" ry="78" fill="url(#reflexo)"/>
+</svg>
