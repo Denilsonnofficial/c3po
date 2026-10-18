@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Grava um fato permanente no perfil (nunca é esquecido).
 
-uso: c3po-anotar "O Denilson prefere respostas curtas"
+uso: c3po-anotar "O usuário prefere respostas curtas"
 """
 import os
 import sys
