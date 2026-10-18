@@ -53,7 +53,7 @@ if [ ${#falta[@]} -gt 0 ]; then
     declare -A P=([python]=python3 [curl]=curl [unzip]=unzip [ffmpeg]=ffmpeg [pulse]=pulseaudio-utils
                   [portaudio]=libportaudio2 [venv]="python3-venv python3-pip" [notify]=libnotify-bin)
     extra="libxcb-cursor0 libegl1 libxkbcommon-x11-0 libgl1"
-    cmd="apt-get update && apt-get install -y"
+    cmd="apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y"
   elif tem pacman; then
     declare -A P=([python]=python [curl]=curl [unzip]=unzip [ffmpeg]=ffmpeg [pulse]=libpulse
                   [portaudio]=portaudio [venv]=python [notify]=libnotify)
