@@ -14,8 +14,13 @@ respondida); gadget e temas testados no Arch/GNOME.
 O repositório é **privado**: a instalação usa um token do GitHub só de leitura (veja abaixo como
 criar). O comando pede o token sem mostrar na tela, então ele não fica no histórico:
 
+Em dois comandos (colar tudo de uma vez quebra: o `read` engole o resto do texto colado):
+
 ```
-read -rsp "Token do GitHub: " T; echo; curl -fsSL -H "Authorization: Bearer $T" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh | C3PO_TOKEN_GITHUB="$T" bash; unset T
+read -rsp "Token do GitHub: " T; echo
+```
+```
+curl -fsSL -H "Authorization: Bearer $T" -H "Accept: application/vnd.github.raw" https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh | C3PO_TOKEN_GITHUB="$T" bash
 ```
 
 Token: https://github.com/settings/personal-access-tokens/new → *Repository access: Only select

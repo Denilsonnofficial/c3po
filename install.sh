@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Instalador de uma linha do C3PO (repositório privado: precisa de um token do GitHub com leitura).
-#   read -rsp "Token do GitHub: " T; echo; curl -fsSL -H "Authorization: Bearer $T" \
-#     -H "Accept: application/vnd.github.raw" https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh \
-#     | C3PO_TOKEN_GITHUB="$T" bash
+#   read -rsp "Token do GitHub: " T; echo          (primeiro este, sozinho)
+#   curl -fsSL -H "Authorization: Bearer $T" -H "Accept: application/vnd.github.raw" \
+#     https://api.github.com/repos/Denilsonnofficial/c3po/contents/install.sh | C3PO_TOKEN_GITHUB="$T" bash
 # Baixa o projeto e roda o instalador; a configuração (nome, voz, personalidade) usa o terminal.
 set -euo pipefail
 REPO="${C3PO_REPO:-Denilsonnofficial/c3po}"
