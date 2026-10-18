@@ -45,6 +45,7 @@ class Cliente:
         self.ao_raciocinio = lambda nivel: None
         if cfg.get("foco"):
             self.ouvinte.definir_foco(True)
+        self.ouvinte.interromper_por_voz = cfg.get("interromper_por_voz", True)
 
     def iniciar(self):
         self.rede.start()
@@ -89,9 +90,9 @@ class Cliente:
 
     def _fala_clara(self, texto):
         """Três palavras ou mais que não lembram nada do que ela está dizendo: é o usuário."""
-        if len(texto.split()) < 3 or not self.frases:
-            return len(texto.split()) >= 3
-        return parecido_em_sequencia(texto, " ".join(f for _, f in self.frases)) < 0.45
+        if len(texto.split()) < 4 or not self.frases:
+            return len(texto.split()) >= 4
+        return parecido_em_sequencia(texto, " ".join(f for _, f in self.frases)) < 0.4
 
     # ------------------------------------------------ eventos do ouvinte (thread do microfone)
     def _acordou(self):

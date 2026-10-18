@@ -227,6 +227,7 @@ COMANDOS = {
     "/microfone": "escolhe o microfone do gadget",
     "/volume": "/volume [0-150]  volume da voz dela no gadget, em %",
     "/foco": "liga/desliga o foco: o gadget escuta direto, sem precisar do nome",
+    "/interromper": "liga/desliga cortar a fala dele falando por cima (desligue em debate entre dois assistentes)",
     "/raciocinio": "/raciocinio [padrao|baixo|medio|alto|maximo]  quanto o modelo pensa antes de responder",
     "/voz": "liga/desliga ouvir as respostas em voz aqui no terminal",
     "/configurar": "assistente completo de configuração",
@@ -652,6 +653,15 @@ class Harness:
         config.salvar(cfg)
         self.ok("Foco ligado: o gadget escuta direto, sem precisar do nome." if cfg["foco"] else "Foco desligado.")
         self._reabrir_gadget_se_aberto("com o foco novo")
+        print()
+
+    def cmd_interromper(self, _):
+        cfg = config.carregar()
+        cfg["interromper_por_voz"] = not cfg.get("interromper_por_voz", True)
+        config.salvar(cfg)
+        self.ok("Interromper por voz ligado: falar por cima corta a fala." if cfg["interromper_por_voz"]
+                else "Interromper por voz desligado: ninguém corta a fala falando por cima (clique no gadget corta).")
+        self._reabrir_gadget_se_aberto("com a mudança")
         print()
 
     def cmd_raciocinio(self, arg):

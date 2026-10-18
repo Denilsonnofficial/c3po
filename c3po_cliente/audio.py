@@ -242,7 +242,7 @@ class CancelaEco:
 
 
 # ---------------------------------------------------------------- ouvinte
-GRACA = 0.9          # s de silêncio depois do fim de uma frase antes de mandar (pausa curta não corta)
+GRACA = 1.2          # s de silêncio depois do fim de uma frase antes de mandar (pausa curta não corta)
 
 
 class Ouvinte(threading.Thread):
@@ -279,6 +279,7 @@ class Ouvinte(threading.Thread):
         self.abafado = False
         self.depois_do_corte = False
         self.foco = False               # botão de foco: escuta direto, sem nome e sem fechar a conversa
+        self.interromper_por_voz = True  # desligue quando dois assistentes conversam na mesma sala
         self.ocupado = ocupado or (lambda: False)
         self.tempo_conversa = tempo_conversa
         self.pausado = False
@@ -388,7 +389,7 @@ class Ouvinte(threading.Thread):
         elif self.abafado and not excesso and agora - self.ultimo_excesso > 1.5:
             self.abafado = False
             self.abafar(1.0)
-        if self.excesso_seq >= 6:                 # 0,6 s falando junto: corta
+        if self.excesso_seq >= 8:                 # 0,8 s falando junto: corta
             self.log(f"[corte por volume: mic {rms:.0f} x eco previsto {previsto:.0f}]")
             self._cortar()
 
@@ -432,7 +433,7 @@ class Ouvinte(threading.Thread):
         tocando = self.tocando()
         if tocando and not self.cortou and not self.ultimo_parcial:
             self.eco_nivel.append(rms)
-        if tocando and self.modo == "conversa" and not self.cortou:
+        if tocando and self.modo == "conversa" and not self.cortou and self.interromper_por_voz:
             self._fala_por_cima(agora, rms)
         elif self.abafado:
             self.abafado = False
@@ -461,7 +462,7 @@ class Ouvinte(threading.Thread):
         if mudou and parcial:
             eco = tocando and self.eh_eco(parcial)
             # texto que claramente não é a fala dela corta na hora; no caso duvidoso o volume decide
-            if (tocando and not eco and len(parcial.split()) >= 2 and not self.cortou
+            if (tocando and not eco and len(parcial.split()) >= 4 and not self.cortou and self.interromper_por_voz
                     and self.fala_clara(parcial)):
                 # falou por cima: corta a resposta e guarda só o começo da fala nova
                 self._cortar()

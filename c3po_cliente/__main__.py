@@ -13,7 +13,7 @@ import time
 
 from . import config
 
-VERSAO = "1.1.0"
+VERSAO = "1.1.1"
 
 
 def main():

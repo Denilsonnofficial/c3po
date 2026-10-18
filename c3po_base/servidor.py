@@ -439,7 +439,9 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             return
         if not self.ligada:
             return
-        if not re.search(r"\w", texto) or ALUCINACAO.search(sem_acento(texto)):
+        # "só um instante" é o aviso de demora do outro assistente na sala, não um pedido
+        if (not re.search(r"\w", texto) or ALUCINACAO.search(sem_acento(texto))
+                or re.fullmatch(r"\W*(so )?um instante\W*", sem_acento(texto))):
             await self.estado("ocioso")
             return
         t = self.turno_tarefa
@@ -574,10 +576,41 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             await fala.put("Só um instante.")
 
     async def falador(self, ws, fila):
+        """Fala as frases em ordem, mas já sintetiza as próximas (até 3) enquanto a atual toca:
+        sintetizar uma por vez deixava um buraco de 0,5-1,5 s entre frases, que soava como corte
+        e fazia quem estava ouvindo achar que ela tinha terminado."""
+        ordem = asyncio.Queue()
+        vagas = asyncio.Semaphore(3)
+        tarefas = []
+
+        async def sintetizar(texto, saida):
+            try:
+                async for bloco in self.boca.falar(texto):
+                    await saida.put(bloco)
+            except Exception as e:
+                log.warning("voz falhou numa frase: %s", e)
+            finally:
+                await saida.put(None)
+                vagas.release()
+
+        async def produzir():
+            while True:
+                item = await fila.get()
+                if item is None or isinstance(item, dict):
+                    await ordem.put(item)
+                    if item is None:
+                        return
+                    continue
+                await vagas.acquire()
+                saida = asyncio.Queue()
+                tarefas.append(asyncio.create_task(sintetizar(item, saida)))
+                await ordem.put((item, saida))
+
+        produtor = asyncio.create_task(produzir())
         iniciou = False
         try:
             while True:
-                item = await fila.get()
+                item = await ordem.get()
                 if item is None:
                     break
                 if isinstance(item, dict):
@@ -589,16 +622,23 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
                             iniciou = False
                         await ws.send_json(item)
                     continue
+                texto, saida = item
                 if not iniciou:
                     await ws.send_json({"t": "audio_inicio", "taxa": 24000})
                     await self.estado("falando")
                     iniciou = True
                 self.turno_falou = True
-                self.falado.append((time.time(), item))
-                await ws.send_json({"t": "frase", "texto": item})
-                async for bloco in self.boca.falar(item):
+                self.falado.append((time.time(), texto))
+                await ws.send_json({"t": "frase", "texto": texto})
+                while True:
+                    bloco = await saida.get()
+                    if bloco is None:
+                        break
                     await ws.send_bytes(bloco)
         finally:
+            produtor.cancel()
+            for t in tarefas:
+                t.cancel()
             if iniciou:
                 try:
                     await ws.send_json({"t": "audio_fim"})

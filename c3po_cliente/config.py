@@ -16,6 +16,7 @@ PADRAO = {
     "microfone": None,       # nome do dispositivo de entrada, None = padrão do sistema
     "mudo": False,
     "foco": False,           # botão de foco: escuta direto, sem precisar do nome
+    "interromper_por_voz": True,   # falar por cima corta a voz dele (desligue para dois assistentes debaterem)
     "tempo_conversa": 20,    # s de silêncio até a conversa fechar e precisar do nome de novo
     "cancelar_eco": False,   # cancelador de eco do PipeWire: tira o eco, mas abafa você enquanto ela fala
     "posicao": None,

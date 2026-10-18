@@ -5,7 +5,7 @@ você diz o nome dele, conversa por voz e controla o computador pelo terminal. �
 [Jarvis](https://github.com/Denilsonnofficial/jarvis): mesma base (opencode, memória em três camadas,
 modo conversa, interrupção por voz, harness de terminal, skills), sem servidor, sem Docker e sem SSH.
 
-Estado: **1.1.0**. Instalação testada do zero num Ubuntu 24.04 limpo (dependências, opencode
+Estado: **1.1.1**. Instalação testada do zero num Ubuntu 24.04 limpo (dependências, opencode
 próprio, escolha automática do MiMo, base, assistente de configuração, harness e uma pergunta
 respondida); gadget e temas testados no Arch/GNOME.
 
@@ -116,6 +116,13 @@ construir-run.sh  gera run/c3po-<versão>.run
 ```
 
 Armadilhas herdadas do Jarvis estão documentadas no README dele; as específicas daqui:
+
+- **"Corta e depois volta" em conversa entre dois assistentes na mesma sala**: a interrupção por
+  voz (feita para o usuário) disparava com a voz do outro assistente. O corte ficou mais exigente
+  (4+ palavras claramente diferentes, ou 0,8 s de fala junto), a espera de fim de fala subiu para
+  1,2 s e `/interromper` desliga a interrupção por voz (o clique no gadget continua cortando).
+  O "Só um instante" de um não vira pergunta para o outro. A voz agora é sintetizada adiantada
+  (até 3 frases), o que não muda nada hoje (medido: zero buraco) mas protege se a síntese ficar lenta.
 
 - **opencode 2.x mudou a API do servidor** (fica sob `/api`, com senha). O C3PO fala a 1.x; com
   2.x instalado ele usa uma cópia 1.x isolada e reaproveita só o `auth.json`.
