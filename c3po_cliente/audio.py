@@ -278,6 +278,7 @@ class Ouvinte(threading.Thread):
         self.ultimo_excesso = 0.0
         self.abafado = False
         self.depois_do_corte = False
+        self.foco = False               # botão de foco: escuta direto, sem nome e sem fechar a conversa
         self.ocupado = ocupado or (lambda: False)
         self.tempo_conversa = tempo_conversa
         self.pausado = False
@@ -301,6 +302,8 @@ class Ouvinte(threading.Thread):
             self._encerrar(avisar=False)
             self.rec.Reset()
             self.segmento.clear()
+            if not sim and self.foco:
+                self.modo, self.primeiro, self.conversa_ate = "conversa", False, float("inf")
 
     def abrir_janela(self, segundos):
         """Entra (ou continua) em conversa sem precisar do nome: clique na esfera ou pedido da base."""
@@ -314,7 +317,22 @@ class Ouvinte(threading.Thread):
 
     def encerrar_conversa(self):
         with self._trava:
-            self._encerrar()
+            if not self.foco:
+                self._encerrar()
+
+    def definir_foco(self, sim):
+        with self._trava:
+            self.foco = sim
+            if sim and not self.pausado:
+                if self.modo != "conversa":
+                    self.modo, self.primeiro = "conversa", False
+                self.conversa_ate = float("inf")
+                self.ao_estado("conversa")
+            elif not sim:
+                self.conversa_ate = time.time() + self.tempo_conversa
+
+    def _renovar(self, agora):
+        self.conversa_ate = float("inf") if self.foco else agora + self.tempo_conversa
 
     def trocar_fonte(self, fonte):
         with self._trava:
@@ -342,7 +360,7 @@ class Ouvinte(threading.Thread):
         origem = "nome" if self.primeiro else ("interrupcao" if self.depois_do_corte else "conversa")
         self.depois_do_corte = False
         self.primeiro = False
-        self.conversa_ate = agora + self.tempo_conversa
+        self._renovar(agora)
         self.ao_falar(bytes(audio), texto, origem)
 
     def _valido(self, texto):
@@ -358,18 +376,19 @@ class Ouvinte(threading.Thread):
             self.ganhos.append(rms / ref)
         ganho = sorted(self.ganhos)[int(len(self.ganhos) * 0.35)] if len(self.ganhos) >= 10 else 0.6
         previsto = ganho * ref
-        excesso = rms > max(2.0 * previsto + 2 * self.piso, 4 * self.piso, 250)
+        # margem folgada: outra voz ou barulho na sala não pode ficar abaixando a voz dela
+        excesso = rms > max(2.6 * previsto + 3 * self.piso, 5 * self.piso, 350)
         self.excesso_seq = self.excesso_seq + 1 if excesso else 0
         if excesso:
             self.ultimo_excesso = agora
-        if self.excesso_seq >= 2 and not self.abafado:
+        if self.excesso_seq >= 3 and not self.abafado:
             self.abafado = True
-            self.abafar(0.25)                     # baixa a voz para ouvir melhor o usuário
+            self.abafar(0.35)                     # baixa a voz para ouvir melhor o usuário
             self.log(f"[abafou: mic {rms:.0f} x eco previsto {previsto:.0f}]")
-        elif self.abafado and not excesso and agora - self.ultimo_excesso > 0.8:
+        elif self.abafado and not excesso and agora - self.ultimo_excesso > 1.5:
             self.abafado = False
             self.abafar(1.0)
-        if self.excesso_seq >= 5:                 # meio segundo falando junto: corta
+        if self.excesso_seq >= 6:                 # 0,6 s falando junto: corta
             self.log(f"[corte por volume: mic {rms:.0f} x eco previsto {previsto:.0f}]")
             self._cortar()
 
@@ -430,7 +449,7 @@ class Ouvinte(threading.Thread):
                 self.rec_nome.Reset()
             if achou and not (tocando and self.eh_eco(parcial)):
                 self.modo, self.primeiro = "conversa", True
-                self.conversa_ate = agora + self.tempo_conversa
+                self._renovar(agora)
                 self.ao_acordar()
             elif final is not None:
                 self.segmento.clear()
@@ -447,7 +466,7 @@ class Ouvinte(threading.Thread):
                 # falou por cima: corta a resposta e guarda só o começo da fala nova
                 self._cortar()
             if not eco:
-                self.conversa_ate = agora + self.tempo_conversa
+                self._renovar(agora)
                 self.ao_estado("ouvindo")
 
         if final is not None:
@@ -484,6 +503,7 @@ class Reprodutor:
     def __init__(self, gravar_em=None, dispositivo=None, volume=1.0):
         self.volume = volume       # 0..1,5, botão de volume do gadget
         self.abafar = 1.0          # baixa a voz na hora em que o usuário começa a falar por cima
+        self._abafar_atual = 1.0
         self.saida_hist = collections.deque(maxlen=300)   # (quando fica audível, rms que saiu)
         self.buf = bytearray()
         self.trava = threading.Lock()
@@ -525,7 +545,8 @@ class Reprodutor:
             a = np.frombuffer(dados, dtype=np.int16).astype(np.float32)
             rms = float(np.sqrt(np.mean(a * a)))
             self.nivel = min(1.0, rms / 32768.0 * 4.0)
-            fator = self.volume * self.abafar
+            self._abafar_atual += (self.abafar - self._abafar_atual) * 0.25   # rampa, sem degrau
+            fator = self.volume * self._abafar_atual
             if fator != 1.0:
                 dados = np.clip(a * fator, -32768, 32767).astype(np.int16).tobytes()
             self.saida_hist.append((t0 + enviado + 0.06, rms * fator))

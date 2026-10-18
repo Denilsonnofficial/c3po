@@ -226,6 +226,8 @@ COMANDOS = {
     "/tema": "/tema [nome]  skin do gadget (sem nome: escolher numa lista)",
     "/microfone": "escolhe o microfone do gadget",
     "/volume": "/volume [0-150]  volume da voz dela no gadget, em %",
+    "/foco": "liga/desliga o foco: o gadget escuta direto, sem precisar do nome",
+    "/raciocinio": "/raciocinio [padrao|baixo|medio|alto|maximo]  quanto o modelo pensa antes de responder",
     "/voz": "liga/desliga ouvir as respostas em voz aqui no terminal",
     "/configurar": "assistente completo de configuração",
     "/limpar": "limpa a tela",
@@ -644,6 +646,29 @@ class Harness:
         self._reabrir_gadget_se_aberto("com o tema novo")
         print()
 
+    def cmd_foco(self, _):
+        cfg = config.carregar()
+        cfg["foco"] = not cfg.get("foco")
+        config.salvar(cfg)
+        self.ok("Foco ligado: o gadget escuta direto, sem precisar do nome." if cfg["foco"] else "Foco desligado.")
+        self._reabrir_gadget_se_aberto("com o foco novo")
+        print()
+
+    def cmd_raciocinio(self, arg):
+        niveis = ["padrao", "baixo", "medio", "alto", "maximo"]
+        atual = self.pedir({"t": "raciocinio_get"}, "raciocinio", 20)
+        if arg not in niveis:
+            nomes = {"padrao": "Padrão do modelo", "baixo": "Baixo (rápido)", "medio": "Médio", "alto": "Alto",
+                     "maximo": "Máximo (lento)"}
+            rotulo = lambda n: nomes[n] + (f" {CIANO}(atual){R}" if n == atual["nivel"] else "")  # noqa: E731
+            i = self._escolher([rotulo(n) for n in niveis], "Raciocínio")
+            if i is None:
+                return
+            arg = niveis[i]
+        r = self.pedir_com_erro({"t": "raciocinio_set", "nivel": arg}, "raciocinio", 20)
+        extra = f"variante {r['variante']}" if r.get("variante") else "este modelo não tem ajuste próprio; vale como instrução"
+        self.ok(f"Raciocínio: {r['nivel']} ({extra}).\n")
+
     def cmd_volume(self, arg):
         cfg = config.carregar()
         if not arg.strip().rstrip("%").isdigit():
@@ -700,6 +725,7 @@ class Harness:
             cmd, _, resto = linha.partition(" ")
             subs = {"/genero": ["masculino", "feminino"], "/autonomia": ["alto", "medio", "baixo"],
                     "/base": ["ligar", "desligar"], "/skill": ["nova", "ver", "remover", "listar"],
+                    "/raciocinio": ["padrao", "baixo", "medio", "alto", "maximo"],
                     "/tema": ["c3po", "r2d2", "sabre", "rebelde", "bb8", "estrela", "holograma", "azul", "reator", "hal", "ambar", "esmeralda", "neon", "retro", "aurora", "grafite"]}.get(cmd, [])
             op = [s + " " for s in subs if s.startswith(resto)]
         return op[estado] if estado < len(op) else None

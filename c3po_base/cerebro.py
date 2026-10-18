@@ -82,6 +82,30 @@ class Cerebro:
             self._modelos = (time.time(), lista)
         return lista
 
+    async def variantes(self, modelo):
+        """Níveis de raciocínio que o modelo aceita (campo variants do opencode)."""
+        cache = getattr(self, "_variantes", None)
+        if cache is None or time.time() - cache[0] > 600:
+            p = await asyncio.create_subprocess_exec(self.binario, "models", "--verbose", cwd=self.pasta, env=self.env,
+                                                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+            saida, _ = await p.communicate()
+            mapa, atual, buf, nivel = {}, None, [], 0
+            for linha in saida.decode(errors="replace").splitlines():
+                if nivel == 0 and "/" in linha and not linha.startswith((" ", "{")):
+                    atual, buf = linha.strip(), []
+                    continue
+                if atual is not None:
+                    buf.append(linha)
+                    nivel += linha.count("{") - linha.count("}")
+                    if nivel == 0 and buf:
+                        try:
+                            mapa[atual] = list((json.loads("\n".join(buf)).get("variants") or {}).keys())
+                        except ValueError:
+                            pass
+                        atual, buf = None, []
+            cache = self._variantes = (time.time(), mapa)
+        return cache[1].get(modelo, [])
+
     async def iniciar(self):
         os.makedirs(self.pasta, exist_ok=True)
         self.proc = await asyncio.create_subprocess_exec(
@@ -179,7 +203,7 @@ class Cerebro:
     async def responder_permissao(self, pid, aprovar):
         await self._post(f"/permission/{pid}/reply", {"reply": "once" if aprovar else "reject"})
 
-    async def perguntar(self, sid, texto, system=None, agente="c3po", ferramentas=None, tempo_max=600):
+    async def perguntar(self, sid, texto, system=None, variante=None, agente="c3po", ferramentas=None, tempo_max=600):
         """Gera eventos simples:
         ("texto", delta) | ("ferramenta", nome, status, titulo) | ("permissao", props) | ("erro", msg) | ("fim",)
         """
@@ -190,6 +214,8 @@ class Cerebro:
             corpo["system"] = system
         if ferramentas is not None:
             corpo["tools"] = ferramentas
+        if variante:
+            corpo["variant"] = variante
         acumulado = {}     # partID -> texto já emitido
         pendentes = {}     # partID -> deltas que chegaram antes de sabermos o tipo
         estado_ferr = {}

@@ -15,6 +15,7 @@ PADRAO = {
     "sensibilidade": 0.78,   # 0..1, maior = exige pronúncia mais parecida
     "microfone": None,       # nome do dispositivo de entrada, None = padrão do sistema
     "mudo": False,
+    "foco": False,           # botão de foco: escuta direto, sem precisar do nome
     "tempo_conversa": 20,    # s de silêncio até a conversa fechar e precisar do nome de novo
     "cancelar_eco": False,   # cancelador de eco do PipeWire: tira o eco, mas abafa você enquanto ela fala
     "posicao": None,

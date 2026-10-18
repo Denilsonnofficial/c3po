@@ -34,8 +34,8 @@ TOKEN = os.environ.get("C3PO_TOKEN", "")
 MODELO = os.environ.get("C3PO_MODELO", "")          # vazio: escolhe sozinho (MiMo grátis primeiro)
 WHISPER = os.environ.get("C3PO_WHISPER", "small")
 STT = os.environ.get("C3PO_STT", "google")      # google (principal) | whisper (só local)
-OCIOSO_SESSAO = int(os.environ.get("C3PO_OCIOSO_SESSAO", "600"))   # s sem falar -> consolida e abre sessão nova
-MAX_TURNOS_SESSAO = int(os.environ.get("C3PO_MAX_TURNOS", "30"))
+OCIOSO_SESSAO = int(os.environ.get("C3PO_OCIOSO_SESSAO", "300"))   # s sem falar -> consolida e abre sessão nova
+MAX_TURNOS_SESSAO = int(os.environ.get("C3PO_MAX_TURNOS", "12"))   # sessão longa deixa o modelo lento
 PALAVRAS_CURTA = int(os.environ.get("C3PO_PALAVRAS_CURTA", "700"))
 CONTINUACAO = int(os.environ.get("C3PO_CONTINUACAO", "6"))
 
@@ -47,6 +47,18 @@ PASTA_TRABALHO = os.environ.get("C3PO_TRABALHO", os.path.join(DADOS, "trabalho")
 # nas configurações do opencode que o usuário já usa
 PASTA_SKILLS = os.path.join(PASTA_TRABALHO, ".opencode", "skills")
 SKILLS_INTERNAS = os.environ.get("C3PO_SKILLS", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "skills"))
+
+
+RACIOCINIO = ("padrao", "baixo", "medio", "alto", "maximo")
+# para cada nível, as variantes do opencode em ordem de preferência
+_VARIANTES = {"baixo": ("none", "minimal", "low"), "medio": ("medium", "low", "high"),
+              "alto": ("high", "medium"), "maximo": ("max", "xhigh", "high")}
+_DICA_RACIOCINIO = {
+    "baixo": "Raciocínio no nível BAIXO: pense o mínimo possível e responda na hora.",
+    "medio": "Raciocínio no nível MÉDIO: pense o suficiente, sem se alongar.",
+    "alto": "Raciocínio no nível ALTO: pense com cuidado antes de responder ou agir.",
+    "maximo": "Raciocínio no nível MÁXIMO: pense a fundo, confira hipóteses e o resultado antes de responder.",
+}
 
 
 def eh_gratis(modelo):
@@ -176,6 +188,7 @@ class Agente:
                                pasta_trabalho=PASTA_TRABALHO)
         self.boca = Boca(self.persona["genero"])
         self.ouvido = None
+        self.raciocinio = ler_json(ARQ_MODELO, {}).get("raciocinio", "padrao")
         self.turno_tarefa = None
         self.turno_texto, self.turno_inicio, self.turno_falou = "", 0.0, False
         self.agindo = False      # executando ferramenta (não falando): fala nova entra na fila
@@ -231,7 +244,7 @@ class Agente:
             if m not in self.modelos_falhos:
                 log.warning("modelo %s falhou; usando %s", self.cerebro.nome_modelo, m)
                 self.cerebro.definir_modelo(m)
-                gravar_json(ARQ_MODELO, {"modelo": m})
+                gravar_json(ARQ_MODELO, {**ler_json(ARQ_MODELO, {}), "modelo": m})
                 return m
         return None
 
@@ -277,7 +290,10 @@ Você roda direto neste computador e o seu bash é o do usuário: {maquina_local
 
 # Seu modelo
 Você está rodando no modelo `{self.cerebro.nome_modelo}` (via opencode). Se perguntarem qual modelo você é, diga esse nome de forma falada.
-Para trocar quando o usuário pedir: `c3po-modelo` mostra o atual e os grátis, `c3po-modelo listar <filtro>` procura entre todos (há centenas no OpenRouter) e `c3po-modelo trocar <nome ou pedaço do nome>` troca. O nome falado pode vir aproximado: escolha o mais parecido. Modelos marcados como pagos custam dinheiro: só troque para um pago se o usuário pediu aquele modelo pelo nome. A troca vale a partir da próxima fala; confirme dizendo para qual modelo trocou.
+Para trocar quando o usuário pedir: `c3po-modelo` mostra o atual e os grátis, `c3po-modelo listar <filtro>` procura entre todos (há centenas no OpenRouter) e `c3po-modelo trocar <nome ou pedaço do nome>` troca. O nome falado pode vir aproximado: escolha o mais parecido. Modelos marcados como pagos custam dinheiro: só troque para um pago se o usuário pediu aquele modelo pelo nome. A troca vale a partir da próxima fala; confirme dizendo para qual modelo trocou. Nível de raciocínio (quando o usuário pedir para pensar mais ou menos): `c3po-modelo raciocinio baixo|medio|alto|maximo|padrao`.
+
+# Raciocínio
+{_DICA_RACIOCINIO.get(self.raciocinio, "Pense pouco: é uma conversa por voz e precisa ser rápida.")}
 
 # Memória de longo prazo
 Há {n} falas guardadas {desde}. Se precisar de algo antigo que não está acima, rode `c3po-lembrar "palavras"` ou `c3po-lembrar --dia AAAA-MM-DD`.
@@ -481,6 +497,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
         await self.estado("pensando")
         fala = asyncio.Queue()
         falador = asyncio.create_task(self.falador(ws, fala))
+        aviso = asyncio.create_task(self._avisar_demora(fala))
         fat = Fatiador()
         resposta = []
         t0 = time.time()
@@ -489,7 +506,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
         try:
           while True:
             refazer = False
-            async for ev in self.cerebro.perguntar(sid, texto, system=self.system()):
+            async for ev in self.cerebro.perguntar(sid, texto, system=self.system(), variante=await self.variante_atual()):
                 if ev[0] == "texto":
                     self.agindo = False
                     if primeira is None:
@@ -531,6 +548,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             await ws.send_json({"t": "audio_fim", "cortado": True})
             raise
         finally:
+            aviso.cancel()
             await fala.put(None)
             final = "".join(resposta).strip()
             if final:
@@ -548,6 +566,12 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             pedidos, self.fila_pedidos = " ".join(self.fila_pedidos), []
             self.turno_tarefa = asyncio.create_task(self.turno(
                 ws, f"(o usuário disse isto enquanto você trabalhava) {pedidos}", registrar=False))
+
+    async def _avisar_demora(self, fala, segundos=12):
+        """Se a primeira palavra demora, avisa uma vez em vez de ficar em silêncio."""
+        await asyncio.sleep(segundos)
+        if not self.turno_falou:
+            await fala.put("Só um instante.")
 
     async def falador(self, ws, fila):
         iniciou = False
@@ -611,6 +635,26 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
         return ok
 
     # ---------- modelos e skills ----------
+    async def variante_atual(self):
+        if self.raciocinio == "padrao":
+            return None
+        aceitas = await self.cerebro.variantes(self.cerebro.nome_modelo)
+        return next((v for v in _VARIANTES[self.raciocinio] if v in aceitas), None)
+
+    async def info_raciocinio(self):
+        return {"t": "raciocinio", "nivel": self.raciocinio, "variante": await self.variante_atual(),
+                "aceitas": await self.cerebro.variantes(self.cerebro.nome_modelo)}
+
+    def definir_raciocinio(self, nivel):
+        if nivel not in RACIOCINIO:
+            raise ValueError(f"nível de raciocínio desconhecido: {nivel}")
+        self.raciocinio = nivel
+        dados = ler_json(ARQ_MODELO, {})
+        dados["raciocinio"] = nivel
+        dados.setdefault("modelo", self.cerebro.nome_modelo)
+        gravar_json(ARQ_MODELO, dados)
+        log.info("raciocínio: %s", nivel)
+
     async def modelos(self):
         lista = await self.cerebro.listar_modelos()
         return {"t": "modelos", "atual": self.cerebro.nome_modelo,
@@ -622,7 +666,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             raise ValueError(f"modelo desconhecido: {novo}")
         anterior = self.cerebro.nome_modelo
         self.cerebro.definir_modelo(novo)
-        gravar_json(ARQ_MODELO, {"modelo": novo})
+        gravar_json(ARQ_MODELO, {**ler_json(ARQ_MODELO, {}), "modelo": novo})
         log.info("modelo trocado: %s -> %s", anterior, novo)
 
     def skills(self):
@@ -762,6 +806,7 @@ async def rota_ws(req):
     log.info("cliente conectado: %s", req.remote)
     await ws.send_json({"t": "config", "persona": ag.persona, "ligada": ag.ligada})
     await ws.send_json({"t": "estado", "valor": "ocioso" if ag.ligada else "desligada"})
+    await ws.send_json(await ag.info_raciocinio())
     audio = bytearray()
     dica, origem, apelidos = "", "nome", []
     try:
@@ -794,6 +839,14 @@ async def rota_ws(req):
             elif t == "config_set":
                 await ag.configurar(m.get("persona") or {})
                 await ws.send_json({"t": "config", "persona": ag.persona, "ligada": ag.ligada})
+            elif t in ("raciocinio_get", "raciocinio_set"):
+                try:
+                    if t == "raciocinio_set":
+                        ag.definir_raciocinio(m.get("nivel", ""))
+                    info = await ag.info_raciocinio()
+                    await (ag.enviar_todos(info) if t == "raciocinio_set" else ws.send_json(info))
+                except ValueError as e:
+                    await ws.send_json({"t": "erro", "msg": str(e)})
             elif t in ("modelo_get", "modelo_set", "skill_listar", "skill_salvar", "skill_remover",
                        "memoria_get", "lembrar"):
                 try:
@@ -836,6 +889,20 @@ async def rota_saude(req):
                               "sessao": ag.sessao, "modelo": ag.cerebro.nome_modelo})
 
 
+async def rota_raciocinio(req):
+    """Usada pelo comando de modelo de dentro (só localhost): troca o nível por voz."""
+    if req.remote not in ("127.0.0.1", "::1"):
+        return web.Response(status=403)
+    ag = AGENTE
+    if req.method == "POST":
+        try:
+            ag.definir_raciocinio((await req.json()).get("nivel", ""))
+            await ag.enviar_todos(await ag.info_raciocinio())
+        except ValueError as e:
+            return web.json_response({"erro": str(e)}, status=400)
+    return web.json_response(await ag.info_raciocinio())
+
+
 async def rota_modelo(req):
     """Usada pelo `c3po-modelo` de dentro do container (só aceita localhost)."""
     if req.remote not in ("127.0.0.1", "::1"):
@@ -866,6 +933,7 @@ def main():
     app.router.add_get("/ws", rota_ws)
     app.router.add_get("/saude", rota_saude)
     app.router.add_route("*", "/modelo", rota_modelo)
+    app.router.add_route("*", "/raciocinio", rota_raciocinio)
     app.on_startup.append(ao_iniciar)
     app.on_cleanup.append(ao_parar)
     web.run_app(app, host=os.environ.get("C3PO_HOST", "127.0.0.1"), port=int(os.environ.get("C3PO_PORTA", "8791")), print=None,

@@ -11,8 +11,11 @@ from PySide6.QtWidgets import QMenu, QWidget
 L, A = 240, 262          # tamanho da janela
 CX, CY, R = 120, 118, 50  # centro e raio da esfera
 BOT_Y, BOT_R = 236, 15
-BOT_MIC_X, BOT_TEMA_X, BOT_VOL_X, BOT_BASE_X = 63, 101, 139, 177
-BOTOES = (("mic", BOT_MIC_X), ("tema", BOT_TEMA_X), ("volume", BOT_VOL_X), ("base", BOT_BASE_X))
+BOT_MIC_X, BOT_FOCO_X, BOT_RAC_X, BOT_TEMA_X, BOT_VOL_X, BOT_BASE_X = 30, 66, 102, 138, 174, 210
+BOTOES = (("mic", BOT_MIC_X), ("foco", BOT_FOCO_X), ("raciocinio", BOT_RAC_X), ("tema", BOT_TEMA_X),
+          ("volume", BOT_VOL_X), ("base", BOT_BASE_X))
+NIVEIS = (("padrao", "Padrão do modelo"), ("baixo", "Baixo (rápido)"), ("medio", "Médio"), ("alto", "Alto"),
+          ("maximo", "Máximo (lento)"))
 
 # cor principal e intensidade do brilho por estado (tema Azul; os outros trocam as cores ativas)
 CORES = {
@@ -206,6 +209,8 @@ class Gadget(QWidget):
         self.estado = "conectando"
         self.detalhe = ""
         self.mudo = False
+        self.foco = False
+        self.raciocinio = "padrao"
         self.ligada = True
         self.nivel = 0.0
         self.cor = QColor(CORES["conectando"][0])
@@ -304,6 +309,8 @@ class Gadget(QWidget):
         if self.opac_botoes > 0.01:
             p.setOpacity(self.opac_botoes)
             self._botao(p, BOT_MIC_X, "mic", ativo=not self.mudo)
+            self._botao(p, BOT_FOCO_X, "foco", ativo=self.foco)
+            self._botao(p, BOT_RAC_X, "raciocinio", ativo=True)
             self._botao(p, BOT_TEMA_X, "tema", ativo=True)
             self._botao(p, BOT_VOL_X, "volume", ativo=self.reprodutor.volume > 0)
             self._botao(p, BOT_BASE_X, "base", ativo=self.ligada)
@@ -975,6 +982,39 @@ class Gadget(QWidget):
             p.drawLine(QPointF(x, BOT_Y + 4.5), QPointF(x, BOT_Y + 8.5))
             if not ativo:
                 p.drawLine(QPointF(x - 8, BOT_Y - 8), QPointF(x + 8, BOT_Y + 8))
+        elif tipo == "foco":
+            # alvo: aceso na cor do tema quando o foco está ligado
+            if ativo:
+                c = QColor(self.cor)
+                c.setAlphaF(0.35)
+                p.setBrush(c)
+                p.setPen(Qt.NoPen)
+                p.drawEllipse(QPointF(x, BOT_Y), BOT_R - 2, BOT_R - 2)
+                caneta.setColor(QColor(self.cor).lighter(140))
+            else:
+                caneta.setColor(QColor("#8a93a0"))
+            p.setPen(caneta)
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(x, BOT_Y), 8, 8)
+            p.drawEllipse(QPointF(x, BOT_Y), 4, 4)
+            p.setBrush(caneta.color())
+            p.drawEllipse(QPointF(x, BOT_Y), 1.4, 1.4)
+        elif tipo == "raciocinio":
+            # medidor: o ponteiro aponta para o nível (padrão fica no meio, tracejado)
+            p.drawArc(QRectF(x - 9, BOT_Y - 6, 18, 18), 0, 180 * 16)
+            for k in range(5):
+                a = math.radians(180 - k * 45)
+                p.drawLine(QPointF(x + math.cos(a) * 7.5, BOT_Y + 3 - math.sin(a) * 7.5),
+                           QPointF(x + math.cos(a) * 9, BOT_Y + 3 - math.sin(a) * 9))
+            idx = {"baixo": 0, "medio": 1, "padrao": 2, "alto": 3, "maximo": 4}.get(self.raciocinio, 2)
+            a = math.radians(180 - idx * 45)
+            ponteiro = QPen(QColor(self.cor).lighter(130) if self.raciocinio != "padrao" else cor, 2,
+                            Qt.DotLine if self.raciocinio == "padrao" else Qt.SolidLine, Qt.RoundCap)
+            p.setPen(ponteiro)
+            p.drawLine(QPointF(x, BOT_Y + 3), QPointF(x + math.cos(a) * 6.5, BOT_Y + 3 - math.sin(a) * 6.5))
+            p.setBrush(cor)
+            p.setPen(Qt.NoPen)
+            p.drawEllipse(QPointF(x, BOT_Y + 3), 1.8, 1.8)
         elif tipo == "volume":
             # alto-falante + ondas conforme o volume (Material "volume_up")
             cone = QPainterPath()
@@ -1033,11 +1073,16 @@ class Gadget(QWidget):
         alvo = self._alvo(ev.position())
         if alvo != self.sobre:
             self.sobre = alvo
-            self.setCursor(Qt.PointingHandCursor if alvo in ("mic", "tema", "volume", "base") else Qt.ArrowCursor)
+            self.setCursor(Qt.PointingHandCursor if alvo in dict(BOTOES) else Qt.ArrowCursor)
             if alvo == "mic":
                 self.setToolTip("Microfone: clique liga/desliga, botão direito troca o dispositivo")
             elif alvo == "tema":
                 self.setToolTip(f"Tema: {TEMAS[self.tema]['nome']}. Clique troca, botão direito escolhe")
+            elif alvo == "foco":
+                self.setToolTip("Foco " + ("ligado: escutando direto, sem precisar do nome" if self.foco
+                                           else "desligado: clique para ele escutar direto, sem precisar do nome"))
+            elif alvo == "raciocinio":
+                self.setToolTip(f"Raciocínio: {dict(NIVEIS)[self.raciocinio]}. Clique troca, botão direito escolhe")
             elif alvo == "volume":
                 self.setToolTip(f"Volume da voz: {round(self.reprodutor.volume * 100)}%. Clique ajusta, rolagem do mouse também")
             elif alvo == "base":
@@ -1064,6 +1109,8 @@ class Gadget(QWidget):
                 self._menu_tema()
             elif alvo == "volume":
                 self._menu_volume()
+            elif alvo == "raciocinio":
+                self._menu_raciocinio()
             elif alvo in ("base", "esfera"):
                 self._menu_base()
 
@@ -1081,6 +1128,11 @@ class Gadget(QWidget):
             return
         if alvo == "mic":
             self.acoes["mudo"]()
+        elif alvo == "foco":
+            self.acoes["foco"]()
+        elif alvo == "raciocinio":
+            chaves = [n for n, _ in NIVEIS]
+            self.acoes["raciocinio"](chaves[(chaves.index(self.raciocinio) + 1) % len(chaves)])
         elif alvo == "volume":
             self._menu_volume()
         elif alvo == "tema":
@@ -1099,6 +1151,18 @@ class Gadget(QWidget):
         for nome, desc in self.acoes["microfones"]():
             a = QAction(desc, m, checkable=True, checked=nome == atual)
             a.triggered.connect(lambda _=False, n=nome: self.acoes["trocar_microfone"](n))
+            m.addAction(a)
+        m.exec(QCursor.pos())
+
+    def definir_raciocinio_visual(self, nivel):
+        self.raciocinio = nivel if nivel in dict(NIVEIS) else "padrao"
+        self.setToolTip(f"Raciocínio: {dict(NIVEIS)[self.raciocinio]}")
+
+    def _menu_raciocinio(self):
+        m = self._menu()
+        for chave, nome in NIVEIS:
+            a = QAction(nome, m, checkable=True, checked=chave == self.raciocinio)
+            a.triggered.connect(lambda _=False, c=chave: self.acoes["raciocinio"](c))
             m.addAction(a)
         m.exec(QCursor.pos())
 

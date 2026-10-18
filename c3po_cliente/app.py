@@ -41,6 +41,10 @@ class Cliente:
             eco_ref=self.reprodutor.eco_ref, abafar=self._abafar, log=self._p,
         )
         self.ouvinte.pausado = bool(cfg.get("mudo"))
+        self.raciocinio = "padrao"
+        self.ao_raciocinio = lambda nivel: None
+        if cfg.get("foco"):
+            self.ouvinte.definir_foco(True)
 
     def iniciar(self):
         self.rede.start()
@@ -157,6 +161,9 @@ class Cliente:
             if pausar != self.ouvinte.pausado:      # sem isso, toda (re)conexão zerava a conversa aberta
                 self.ouvinte.pausar(pausar)
             self._mostrar()
+        elif t == "raciocinio":
+            self.raciocinio = m.get("nivel", "padrao")
+            self.ao_raciocinio(self.raciocinio)
         elif t == "erro":
             self._p("[erro da base]", m.get("msg"))
 
@@ -192,6 +199,20 @@ class Cliente:
         else:
             self.reprodutor.trocar_dispositivo(None)
             self.ouvinte.trocar_fonte(FonteMicrofone(nome))
+
+    def alternar_foco(self):
+        self.cfg["foco"] = not self.cfg.get("foco")
+        atual = config.carregar()
+        atual["foco"] = self.cfg["foco"]
+        config.salvar(atual)
+        self.ouvinte.definir_foco(self.cfg["foco"])
+        if not self.cfg["foco"]:
+            self.local = None
+        self._mostrar()
+        return self.cfg["foco"]
+
+    def definir_raciocinio(self, nivel):
+        self.rede.json({"t": "raciocinio_set", "nivel": nivel})
 
     def chamar_manual(self):
         """Clique na esfera: interrompe a fala, ou abre a conversa sem precisar do nome."""
@@ -319,6 +340,9 @@ def rodar_gadget():
     def mudo():
         gadget.mudo = cli.alternar_mudo()
 
+    def foco():
+        gadget.foco = cli.alternar_foco()
+
     def base():
         gadget.ligada = cli.alternar_base()
 
@@ -344,11 +368,14 @@ def rodar_gadget():
     acoes = {
         "clicar_esfera": cli.chamar_manual, "mudo": mudo, "base": base, "microfones": listar_microfones,
         "microfone_atual": lambda: cfg.get("microfone"), "trocar_microfone": cli.trocar_microfone,
-        "reconfigurar": reconfigurar, "sair": app.quit, "mover": mover, "tema": tema, "volume": volume,
+        "reconfigurar": reconfigurar, "sair": app.quit, "mover": mover, "tema": tema, "volume": volume, "foco": foco,
+        "raciocinio": cli.definir_raciocinio,
         "terminal": lambda: abrir_terminal([]),
     }
     gadget = Gadget(cli.reprodutor, acoes, cfg.get("posicao"), cfg.get("tema", "c3po"))
     gadget.mudo = bool(cfg.get("mudo"))
+    gadget.foco = bool(cfg.get("foco"))
+    cli.ao_raciocinio = gadget.definir_raciocinio_visual
     gadget.show()
     import signal
 

@@ -3,6 +3,7 @@
 
 uso: c3po-modelo                      modelo atual e os grátis
      c3po-modelo listar <filtro>      procura entre todos (ex.: claude, deepseek, free)
+     c3po-modelo raciocinio [nivel]   mostra/troca o nível: padrao, baixo, medio, alto, maximo
      c3po-modelo trocar <nome>        troca (aceita pedaço do nome: "deepseek", "glm 5.3")
 """
 import json
@@ -32,6 +33,20 @@ def rotulo(m):
     return f"{m['id']}  ({'grátis' if m['gratis'] else 'PAGO'})"
 
 
+args0 = sys.argv[1:]
+if args0[:1] == ["raciocinio"]:
+    url = URL.rsplit("/", 1)[0] + "/raciocinio"
+    corpo = {"nivel": args0[1]} if len(args0) > 1 else None
+    req = urllib.request.Request(url, data=json.dumps(corpo).encode() if corpo else None,
+                                 headers={"Content-Type": "application/json"}, method="POST" if corpo else "GET")
+    try:
+        r = json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as e:
+        r = json.load(e)
+    if r.get("erro"):
+        sys.exit(r["erro"])
+    print(f"Raciocínio: {r['nivel']} (variante do modelo: {r['variante'] or 'nenhuma; vale como instrução no prompt'})")
+    sys.exit(0)
 info = chamar()
 todos = info["disponiveis"]
 args = sys.argv[1:]

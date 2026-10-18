@@ -5,7 +5,7 @@ você diz o nome dele, conversa por voz e controla o computador pelo terminal. �
 [Jarvis](https://github.com/Denilsonnofficial/jarvis): mesma base (opencode, memória em três camadas,
 modo conversa, interrupção por voz, harness de terminal, skills), sem servidor, sem Docker e sem SSH.
 
-Estado: **1.0.0**. Instalação testada do zero num Ubuntu 24.04 limpo (dependências, opencode
+Estado: **1.1.0**. Instalação testada do zero num Ubuntu 24.04 limpo (dependências, opencode
 próprio, escolha automática do MiMo, base, assistente de configuração, harness e uma pergunta
 respondida); gadget e temas testados no Arch/GNOME.
 
@@ -57,6 +57,7 @@ c3po                 num terminal: harness (conversa por texto e comandos /); fo
 c3po gadget          o gadget flutuante
 c3po terminal        abre o harness numa janela de terminal (atalho do menu)
 c3po configurar      refaz a configuração
+c3po atualizar       baixa a versão mais nova do GitHub (mantém configuração e memória)
 c3po texto "..."     pergunta digitada
 ```
 
@@ -67,6 +68,13 @@ abre a lista com busca.
 **Voz:** diga o nome ("C3PO", "cê três pê ó", "si tri pi ó") e o pedido. Depois disso a conversa
 fica aberta: fale sem repetir o nome; ela fecha após 20 s de silêncio. Fale por cima para
 interromper. Calibrar o nome no `c3po configurar` ajuda muito.
+
+## Botões do gadget
+
+Microfone, **foco** (escuta direto, sem nome e sem fechar a conversa), **raciocínio** (Padrão, Baixo,
+Médio, Alto, Máximo: vira a variante que o modelo aceita, ou instrução no prompt quando ele não tem),
+tema, volume e liga/desliga. Os botões aparecem com o mouse em cima. No harness: `/foco` e
+`/raciocinio`; por voz: "pensa mais/menos".
 
 ## Gadgets
 
