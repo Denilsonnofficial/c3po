@@ -106,7 +106,7 @@ class Cliente:
     def _falou(self, pcm, dica, origem):
         self._p(f"[enviando {len(pcm) / 32000:.1f}s de áudio, {origem}] vosk ouviu: {dica!r}")
         self.local = "conversa"
-        if not self.rede.fala(pcm, dica, origem):
+        if not self.rede.fala(pcm, dica, origem, self.cfg.get("apelidos", [])):
             self.estado_base = "conectando"
         self._mostrar()
 

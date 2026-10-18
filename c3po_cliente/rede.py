@@ -57,13 +57,13 @@ class Rede(threading.Thread):
         ws = self.ws
         return self._agendar(ws.send(json.dumps(msg)) if ws else _nada())
 
-    def fala(self, pcm, dica="", origem="nome"):
+    def fala(self, pcm, dica="", origem="nome", apelidos=()):
         ws = self.ws
         if ws is None:
             return False
 
         async def enviar():
-            await ws.send(json.dumps({"t": "fala_inicio", "dica": dica, "origem": origem}))
+            await ws.send(json.dumps({"t": "fala_inicio", "dica": dica, "origem": origem, "apelidos": list(apelidos)}))
             for i in range(0, len(pcm), 32000):
                 await ws.send(pcm[i:i + 32000])
             await ws.send(json.dumps({"t": "fala_fim"}))

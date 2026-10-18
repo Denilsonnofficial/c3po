@@ -32,7 +32,7 @@ def fonetico(s):
     """Aproxima palavras que soam parecido em português (jarvis ~ jarbas ~ javis)."""
     s = normalizar(s).replace(" ", "")
     for a, b in (("ph", "f"), ("ch", "x"), ("sh", "x"), ("lh", "li"), ("nh", "ni"), ("qu", "k"), ("gu", "g"),
-                 ("w", "v"), ("y", "i"), ("z", "s"), ("ç", "s"), ("c", "k"), ("h", ""), ("v", "b"),
+                 ("aw", "au"), ("ew", "eu"), ("ow", "ou"), ("w", "v"), ("y", "i"), ("z", "s"), ("ç", "s"), ("c", "k"), ("h", ""), ("v", "b"),
                  ("e", "i"), ("o", "u"), ("l", "u")):
         s = s.replace(a, b)
     return re.sub(r"(.)\1+", r"\1", s)

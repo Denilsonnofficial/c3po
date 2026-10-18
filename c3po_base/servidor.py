@@ -116,6 +116,7 @@ def fonetico(s):
     s = re.sub(r"\d", lambda m: NUMEROS[m.group()], sem_acento(s))      # C3PO -> ctrespo
     s = re.sub(r"[^a-z]", "", s)
     for a, b in (("ph", "f"), ("ch", "x"), ("sh", "x"), ("lh", "li"), ("nh", "ni"), ("qu", "k"), ("gu", "g"),
+                 ("aw", "au"), ("ew", "eu"), ("ow", "ou"),        # "raw" se fala "ráu"
                  ("w", "v"), ("y", "i"), ("z", "s"), ("c", "k"), ("h", ""), ("v", "b"), ("e", "i"), ("o", "u"), ("l", "u")):
         s = s.replace(a, b)
     return re.sub(r"(.)\1+", r"\1", s)
@@ -354,8 +355,17 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
                 asyncio.create_task(self.processar_pendentes())
 
     # ---------- conversa ----------
-    def nome_presente(self, texto):
-        alvo = fonetico(self.persona["nome"])
+    def nome_confirmado(self, texto, dica, apelidos):
+        """Segunda conferência do nome (a primeira foi o detector do PC). Nome curto o Google
+        costuma comer ou trocar ("raw" vira "How"): aí vale a detecção local."""
+        if len(fonetico(self.persona["nome"])) <= 4:
+            return True
+        return any(self.nome_presente(t, n) for t in (texto, dica) for n in [self.persona["nome"], *apelidos])
+
+    def nome_presente(self, texto, nome=None):
+        alvo = fonetico(nome or self.persona["nome"])
+        if not alvo:
+            return False
         pal = re.sub(r"\d", lambda m: f" {NUMEROS[m.group()]} ", sem_acento(texto)).replace("-", " ").split()
         for i in range(len(pal)):
             for k in (1, 2, 3, 4):
@@ -364,7 +374,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
                     return True
         return False
 
-    async def ao_falar(self, ws, pcm, dica, origem="nome"):
+    async def ao_falar(self, ws, pcm, dica, origem="nome", apelidos=()):
         if not self.ligada:
             return
         ocupado = self.turno_tarefa and not self.turno_tarefa.done()
@@ -396,7 +406,7 @@ Reescreva a memória inteira incorporando a conversa nova. Regras:
             if not ocupado:
                 await self.estado("ocioso")
             return
-        if origem == "nome" and not self.nome_presente(texto) and not self.nome_presente(dica) and not self.confirmacao:
+        if origem == "nome" and not self.nome_confirmado(texto, dica, apelidos) and not self.confirmacao:
             # o detector local se enganou; o whisper é quem confirma o nome
             log.info("nome não confirmado na transcrição, ignorando")
             await ws.send_json({"t": "ouvi", "texto": texto, "ignorado": True, "motivo": "sem_nome"})
@@ -753,7 +763,7 @@ async def rota_ws(req):
     await ws.send_json({"t": "config", "persona": ag.persona, "ligada": ag.ligada})
     await ws.send_json({"t": "estado", "valor": "ocioso" if ag.ligada else "desligada"})
     audio = bytearray()
-    dica, origem = "", "nome"
+    dica, origem, apelidos = "", "nome", []
     try:
         async for msg in ws:
             if msg.type == WSMsgType.BINARY:
@@ -768,8 +778,9 @@ async def rota_ws(req):
                 audio = bytearray()
                 dica = m.get("dica", "")
                 origem = m.get("origem", "nome")
+                apelidos = [a for a in m.get("apelidos", []) if isinstance(a, str)][:20]
             elif t == "fala_fim":
-                asyncio.create_task(ag.ao_falar(ws, bytes(audio), dica, origem))
+                asyncio.create_task(ag.ao_falar(ws, bytes(audio), dica, origem, apelidos))
                 audio = bytearray()
             elif t == "texto":
                 await ws.send_json({"t": "ouvi", "texto": m.get("texto", "")})

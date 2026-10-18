@@ -3,6 +3,7 @@
 c3po gadget          abre o gadget flutuante
 c3po terminal        abre uma janela de terminal com o harness (atalho do menu)
 c3po configurar      refaz a configuração
+c3po atualizar       baixa a versão mais nova do GitHub (mantém configuração e memória)
 c3po texto "..."     manda uma pergunta digitada e mostra/toca a resposta
 c3po teste-wav x.wav usa um .wav (16 kHz mono) no lugar do microfone, grava a resposta em resposta.wav
 c3po microfones      lista as entradas de áudio
@@ -12,7 +13,7 @@ import time
 
 from . import config
 
-VERSAO = "1.0.0"
+VERSAO = "1.0.1"
 
 
 def main():
@@ -42,6 +43,15 @@ def main():
         from .app import abrir_terminal
 
         return 0 if abrir_terminal([]) else 1
+    if cmd == "atualizar":
+        import subprocess
+
+        url = "https://raw.githubusercontent.com/Denilsonnofficial/c3po/main/install.sh"
+        r = subprocess.run(["bash", "-c", f"curl -fsSL {url} | bash -s -- --sem-configurar"])
+        if r.returncode == 0:
+            subprocess.run(["systemctl", "--user", "restart", "c3po-base.service", "c3po.service"], capture_output=True)
+            print("Atualizado e reiniciado.")
+        return r.returncode
     if cmd == "microfones":
         from .audio import listar_microfones
 
